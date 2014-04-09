@@ -3,7 +3,7 @@ This code primarily comes from
 http://www.prasannatech.net/2008/07/socket-programming-tutorial.html
 and
 http://www.binarii.com/files/papers/c_sockets.txt
-*/
+ */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -23,6 +23,11 @@ http://www.binarii.com/files/papers/c_sockets.txt
 void *fun(void *);
 char mostRecent[500];
 int end = 0;
+int count = 0;
+pthread_mutex_t* locker;
+int setting = 0;
+int setF = 0;
+int setC = 1;
 
 int start_server(int PORT_NUMBER)
 {
@@ -66,11 +71,12 @@ int start_server(int PORT_NUMBER)
       fflush(stdout);
      
 while(end == 0){
+  
       // 4. accept: wait here until we get a connection on that port
       int sin_size = sizeof(struct sockaddr_in);
       int fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
       printf("Server got a connection from (%s, %d)\n", inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
-      
+      setting = 0;
       // buffer to read data into
       char request[1024];
       
@@ -95,6 +101,7 @@ while(end == 0){
         token = strtok(NULL, " ");
       }
       token = strtok(NULL, " ");
+      printf("THIS IS TOKEN %s", token);
       if(strcmp(token, "/temperature") == 0){
       char temp[500];
       sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
@@ -105,9 +112,35 @@ while(end == 0){
       send(fd, reply, strlen(reply), 0);
       //printf("Server sent message: %s\n", reply);
 }
+
+else if (strcmp(token, "/setF") == 0){
+  setting = 1;
+    setC = 0;
+    setF = 1;
+    char temp[500];
+      sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
+      char *reply = temp;
+      
+      // 6. send: send the message over the socket
+      // note that the second argument is a char*, and the third is the number of chars
+      send(fd, reply, strlen(reply), 0);
+  
+}
+else if (strcmp(token, "/setC") == 0){
+  setting = 1;
+  setC = 1;
+  setF = 0; 
+  char temp[500];
+      sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
+      char *reply = temp;
+      
+      // 6. send: send the message over the socket
+      // note that the second argument is a char*, and the third is the number of chars
+      send(fd, reply, strlen(reply), 0);
+}
       // 7. close: close the socket connection
       close(fd);
-    }
+}
       close(sock);
       printf("Server closed connection\n");
   
@@ -115,12 +148,11 @@ while(end == 0){
 } 
 
 void* fun(void*p){
-  //locker = malloc(sizeof(pthread_mutex_t));
-  //if (locker == NULL) return 1;
-  //pthread_mutex_init(locker,NULL);
+
   
   /* Connect with Arduino */
   // first, open the connection
+  
   int fd = open("/dev/cu.usbmodem1411", O_RDWR);
   
   // then configure it
@@ -136,8 +168,20 @@ void* fun(void*p){
   char buf[500];
   char buf2[2];
   while (1) {
-          
+
+    if(setF == 1){
+      int bytes_written = write(fd, "0", 1);
+      printf("BYTES %d", bytes_written);
+    }
+    else if(setC == 0){
+      int bytes_written = write(fd, "1", 1);
+      printf("BYTES %d", bytes_written);
+    }
+
+              if(setting != 1){
+              pthread_mutex_lock(locker);
               read(fd, buf2, 1);
+              pthread_mutex_unlock(locker);
               if(buf2[0] != '\n') strcat(buf, buf2);
               //printf("HELLO");
               if(buf2[0] == '\n'){
@@ -150,10 +194,14 @@ void* fun(void*p){
       strcpy(buf, "");
               }
           }
+        }
 }
 
 int main(int argc, char *argv[])
 {
+    locker = malloc(sizeof(pthread_mutex_t));
+  if (locker == NULL) return 1;
+  pthread_mutex_init(locker,NULL);
   // check the number of arguments
   if (argc != 2)
     {
