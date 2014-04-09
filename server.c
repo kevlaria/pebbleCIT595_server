@@ -3,7 +3,7 @@ This code primarily comes from
 http://www.prasannatech.net/2008/07/socket-programming-tutorial.html
 and
 http://www.binarii.com/files/papers/c_sockets.txt
- */
+*/
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -14,6 +14,15 @@ http://www.binarii.com/files/papers/c_sockets.txt
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <pthread.h>
+
+#include <fcntl.h>
+#include <signal.h>
+#include <termios.h>
+
+void *fun(void *);
+char mostRecent[500];
+int end = 0;
 
 int start_server(int PORT_NUMBER)
 {
@@ -56,7 +65,7 @@ int start_server(int PORT_NUMBER)
       printf("\nServer configured to listen on port %d\n", PORT_NUMBER);
       fflush(stdout);
      
-
+while(end == 0){
       // 4. accept: wait here until we get a connection on that port
       int sin_size = sizeof(struct sockaddr_in);
       int fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
@@ -80,22 +89,68 @@ int start_server(int PORT_NUMBER)
            "name": "cit595"
         }
       */
-      char *reply = "{\n\"name\": \"cit595\"\n}\n";
+      char * token;
+      token = strtok(request, " ");
+      while(strcmp(token, "GET") != 0) {
+        token = strtok(NULL, " ");
+      }
+      token = strtok(NULL, " ");
+      if(strcmp(token, "/temperature") == 0){
+      char temp[500];
+      sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
+      char *reply = temp;
       
       // 6. send: send the message over the socket
       // note that the second argument is a char*, and the third is the number of chars
       send(fd, reply, strlen(reply), 0);
       //printf("Server sent message: %s\n", reply);
-
+}
       // 7. close: close the socket connection
       close(fd);
+    }
       close(sock);
       printf("Server closed connection\n");
   
       return 0;
 } 
 
+void* fun(void*p){
+  //locker = malloc(sizeof(pthread_mutex_t));
+  //if (locker == NULL) return 1;
+  //pthread_mutex_init(locker,NULL);
+  
+  /* Connect with Arduino */
+  // first, open the connection
+  int fd = open("/dev/cu.usbmodem1411", O_RDWR);
+  
+  // then configure it
+  struct termios options;
+  tcgetattr(fd, &options);
+  cfsetispeed(&options, 9600);
+  cfsetospeed(&options, 9600);
+  tcsetattr(fd, TCSANOW, &options);
+  
 
+
+  
+  char buf[500];
+  char buf2[2];
+  while (1) {
+          
+              read(fd, buf2, 1);
+              if(buf2[0] != '\n') strcat(buf, buf2);
+              //printf("HELLO");
+              if(buf2[0] == '\n'){
+              char temp[500];
+              strcpy(temp, buf);
+              if(strcmp(temp, mostRecent) != 0){
+                  strcpy(mostRecent, buf);
+                  //printf("%s", mostRecent);
+        }
+      strcpy(buf, "");
+              }
+          }
+}
 
 int main(int argc, char *argv[])
 {
@@ -106,6 +161,11 @@ int main(int argc, char *argv[])
       exit(0);
     }
 
+
   int PORT_NUMBER = atoi(argv[1]);
+  pthread_t thread_id; // id of thread that will be created
+ // create/start the thread 
+ pthread_create(&thread_id, NULL, &fun, NULL); 
+
   start_server(PORT_NUMBER);
 }
