@@ -97,6 +97,14 @@ while(end == 0){
            "name": "cit595"
         }
       */
+      /*
+      * This is where the server receives message from the phone. The message will be in the following formats:
+	- "/temperature"
+	- "/pause" (to be implemented)
+	- "/resume" (to be implemented)
+     
+      */
+      
       char * token;
       token = strtok(request, " ");
       while(strcmp(token, "GET") != 0) {
@@ -104,7 +112,7 @@ while(end == 0){
       }
       token = strtok(NULL, " ");
       printf("THIS IS TOKEN %s", token);
-      if(strcmp(token, "/temperature") == 0){
+      if(strcmp(token, "/temperature") == 0){ 
       char temp[500];
       sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
       char *reply = temp;
