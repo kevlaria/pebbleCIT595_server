@@ -4,6 +4,8 @@ http://www.prasannatech.net/2008/07/socket-programming-tutorial.html
 and
 http://www.binarii.com/files/papers/c_sockets.txt
  */
+ 
+ // TODO BUG with SETC & SETF - interfacing between arduino thread and server code. Reading something in from server, trying to translate to server to thread in arduino server. Stuck in F after transition or not transitioning
 
 #include <sys/types.h>
 #include <sys/socket.h>
