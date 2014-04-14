@@ -26,14 +26,16 @@ http://www.binarii.com/files/papers/c_sockets.txt
 void *start_arduino(void *);
 void update_stats(double);
 void insert_into_array(double);
+void send_temperature_to_pebble(int);
+void change_arduino_display_to_c_f();
 char mostRecent[500];
 int end = 0;
 int count = 0;
 pthread_mutex_t* locker;
-pthread_mutex_t* insert_into_array_lock;
-int setting = 0;
+//int setting = 0;
 int setF = 0;
-int setC = 1;
+//int setC = 1;
+int fdArduino;
 
 // Temperature stats
 double max;
@@ -43,8 +45,14 @@ double most_recent;
 int count;
 double temperature_readings[SECONDS_IN_HOUR]; 
 
+
+/****************************
+* SERVER-RELATED CODE
+*****************************
+*/
+
 /*
-* CODE TO RUN SERVER
+* Function to start and run server
 */
 int start_server(int PORT_NUMBER)
 {
@@ -93,14 +101,17 @@ while(end == 0){
       int sin_size = sizeof(struct sockaddr_in);
       int fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
       printf("Server got a connection from (%s, %d)\n", inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
-      setting = 0;
       // buffer to read data into
       char request[1024];
       
       // 5. recv: read incoming message into buffer
       int bytes_received = recv(fd,request,1024,0);
+
+      //if (bytes_received == 0) continue;
+
       // null-terminate the string
       request[bytes_received] = '\0';
+
       printf("Here comes the message:\n");
       printf("%s\n", request);
 
@@ -127,127 +138,103 @@ while(end == 0){
       }
       token = strtok(NULL, " ");
       printf("THIS IS TOKEN %s", token);
+
       if(strcmp(token, "/temperature") == 0){ 
-      char string_to_send_to_phone[500];
+        send_temperature_to_pebble(fd);
+        //printf("Server sent message: %s\n", reply);
+      }
 
-      /* Update string to be sent to phone.  * The server should have the following format:
-        {
-          "mode": "Celsius",
-          "data": [
-           {"avg": 25.5,
-           "min": 10.5,
-           "max": 38.4,
-           "now": 30.9}
-           ]
-         } 
-    */
-      pthread_mutex_lock(locker);
-
-      sprintf(string_to_send_to_phone, "{\n\"mode\": \"Celsius\",\n\"data\": [\n{\"avg\":%.2f,\n\"min\":%.2f,\n\"max\":%.2f,\n\"now\":%.2f\n}\n]\n}", average, min, max, most_recent);
-
-      pthread_mutex_unlock(locker);
-
-      char *reply = string_to_send_to_phone;
+      else if (strcmp(token, "/setF") == 0){
+        setF = 1;
+        change_arduino_display_to_c_f(); 
+      }
       
-      // 6. send: send the message over the socket
-      // note that the second argument is a char*, and the third is the number of chars
-      send(fd, reply, strlen(reply), 0);
-      //printf("Server sent message: %s\n", reply);
-}
+      else if (strcmp(token, "/setC") == 0){
+        setF = 0; 
+        change_arduino_display_to_c_f(); 
+      }
 
-else if (strcmp(token, "/setF") == 0){
-  setting = 1;
-    setC = 0;
-    setF = 1;
-    char temp[500];
-      sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
-      char *reply = temp;
-      
-      // 6. send: send the message over the socket
-      // note that the second argument is a char*, and the third is the number of chars
-      send(fd, reply, strlen(reply), 0);
-  
-}
-else if (strcmp(token, "/setC") == 0){
-  setting = 1;
-  setC = 1;
-  setF = 0; 
-  char temp[500];
-      sprintf(temp, "{\n\"temperature\": \"%s\"\n}\n", mostRecent);
-      char *reply = temp;
-      
-      // 6. send: send the message over the socket
-      // note that the second argument is a char*, and the third is the number of chars
-      send(fd, reply, strlen(reply), 0);
-}
-      // 7. close: close the socket connection
       close(fd);
-}
-      close(sock);
-      printf("Server closed connection\n");
-  
-      return 0;
-} 
 
+      // end of call
+
+    }
+
+    // 7. close: close the socket connection
+
+    close(sock);
+    printf("Server closed connection\n");
+  
+    return 0;
+}
 
 /*
-* CODE TO CONNECT TO ARUDINO
+* Function to send temperature to phone
 */
-void* start_arduino(void*p){
+void send_temperature_to_pebble(int fd){
+  char string_to_send_to_phone[500];
 
-  
-  /* Connect with Arduino */
-  // first, open the connection
-  
-  int fd = open("/dev/cu.usbmodem1421", O_RDWR);
+  /* Update string to be sent to phone.  * The server should have the following format:
+    {
+      "mode": "Celsius",
+      "data": [
+      {"avg": 25.5,
+      "min": 10.5,
+      "max": 38.4,
+      "now": 30.9}
+      ]
+    } 
+  */
+  if (setF == 0){   // 
+    pthread_mutex_lock(locker);
 
-  // then configure it
-  struct termios options;
-  tcgetattr(fd, &options);
-  cfsetispeed(&options, 9600);
-  cfsetospeed(&options, 9600);
-  tcsetattr(fd, TCSANOW, &options);
-  
+    sprintf(string_to_send_to_phone, "{\n\"mode\": \"Celsius\",\n\"data\": [\n{\"avg\":%.1f,\n\"min\":%.1f,\n\"max\":%.1f,\n\"now\":%.1f\n}\n]\n}", average, min, max, most_recent);
 
-  
-  char buf[500];
-  char buf2[2];
-  while (1) {
-    if(setF == 1){
-      int bytes_written = write(fd, "0", 1);
-      printf("BYTES %d", bytes_written);
-    }
-    else if(setC == 0){
-      int bytes_written = write(fd, "1", 1);
-      printf("BYTES %d", bytes_written);
-    }
+    pthread_mutex_unlock(locker);
 
-    // Read in temperature from Arduino. 
-    // if setting is not 1 (ie if token is neither setF nor setC)
+    char *reply = string_to_send_to_phone;
+      
+    // 6. send: send the message over the socket
+        // note that the second argument is a char*, and the third is the number of chars
+    send(fd, reply, strlen(reply), 0);
+  } else {  // Send in Fahrenheit
 
-    if(setting != 1){
-      read(fd, buf2, 1);
-      if(buf2[0] != '\n') strcat(buf, buf2); // copy individual letter to buffer, 
-      // and continue reading next letter
-             
-      else {  // Output from arduino is complete. 
-        double temperature;
-        sscanf(buf, "%lf", &temperature); // Convert number into double
+    pthread_mutex_lock(locker);
 
-        update_stats(temperature);
+    double averageF = average * 9/5 + 32;
+    double maxF = max * 9/5 + 32;
+    double minF = min * 9/5 + 32;
+    double most_recentF = most_recent * 9/5 + 32;
 
-        strcpy(buf, ""); // Clear buffer
-      }
-    }
+    pthread_mutex_unlock(locker);
+
+    sprintf(string_to_send_to_phone, "{\n\"mode\": \"Fahrenheit\",\n\"data\": [\n{\"avg\":%.1f,\n\"min\":%.1f,\n\"max\":%.1f,\n\"now\":%.1f\n}\n]\n}", averageF, minF, maxF, most_recentF);
+
+
+    char *reply = string_to_send_to_phone;
+      
+    // 6. send: send the message over the socket
+        // note that the second argument is a char*, and the third is the number of chars
+    send(fd, reply, strlen(reply), 0);
+
   }
 }
 
+
+/****************************
+* TEMPERATURE STAT-RELATED CODE
+*****************************
+*/
+
 /*
-*  CODE TO UPDATE STATS
+*  Function to update stats
 */
 void update_stats(double new_temperature){
 
       if (new_temperature > 200) return;  // Don't update stats if temperature is faulty
+      if (count <= SECONDS_IN_HOUR){
+        count++;    // Increment count per update_stats, up to SECONDS_IN_HOUR.
+      }
 
       int index = 0;
       insert_into_array(new_temperature);
@@ -258,9 +245,6 @@ void update_stats(double new_temperature){
       min = 500;
       double total_temperature; // for calculating average
 
-      if (count <= SECONDS_IN_HOUR){
-        count++;    // Increment count per update_stats, up to SECONDS_IN_HOUR.
-      }
 
       // Recalculate max, min and average temperature for the past 24 hrs
       for (index = 0; index < count; index ++){
@@ -269,9 +253,10 @@ void update_stats(double new_temperature){
         total_temperature += temperature_readings[index];
       }
 
-      average = total_temperature / count;
+      average = total_temperature / (count);
 
       pthread_mutex_unlock(locker);
+
 
 /*
       printf("\n%.2f <--- max\t", max);
@@ -289,7 +274,7 @@ void update_stats(double new_temperature){
 }
 
 /*
-*  CODE TO UPDATE ARRAY OF TEMPERATURES
+*  Function to update array of temperatures
 */
 void insert_into_array(double new_temperature){
   int index = 0;
@@ -300,8 +285,75 @@ void insert_into_array(double new_temperature){
   temperature_readings[0] = new_temperature;
 }
 
+
+/****************************
+* ARUDINO-RELATED CODE
+*****************************
+*/
+
 /*
+*  Function to connect to the arduino
+*/
+void* start_arduino(void*p){
+
+  
+  /* Connect with Arduino */
+  // first, open the connection
+  
+  fdArduino = open("/dev/cu.usbmodem1421", O_RDWR);
+
+  // then configure it
+  struct termios options;
+  tcgetattr(fdArduino, &options);
+  cfsetispeed(&options, 9600);
+  cfsetospeed(&options, 9600);
+  tcsetattr(fdArduino, TCSANOW, &options);
+  
+
+  
+  char buf[500];
+  char buf2[2];
+  while (1) {
+
+    // Read in temperature from Arduino. It will always be sent in Celsius
+    read(fdArduino, buf2, 1);
+    if(buf2[0] != '\n') strcat(buf, buf2); // copy individual letter to buffer, 
+    // and continue reading next letter
+             
+    else {  // Output from arduino is complete. 
+
+
+      double temperature;
+      sscanf(buf, "%lf", &temperature); // Convert number into double
+      update_stats(temperature);
+
+       strcpy(buf, ""); // Clear buffer
+      
+    }
+  }
+}
+
+
+/*
+* Method to change the arduino display to display Celsius or Fahrenheit 
+*/
+void change_arduino_display_to_c_f(){
+    if(setF == 1){
+      int bytes_written = write(fdArduino, "0", 1);
+//      printf("BYTES %d", bytes_written);
+    }
+    else {
+      int bytes_written = write(fdArduino, "1", 1);
+//      printf("BYTES %d", bytes_written);
+    }
+}
+
+
+
+
+/**************
 *  MAIN FUNCTION
+*************
 */
 int main(int argc, char *argv[])
 {
@@ -309,10 +361,7 @@ int main(int argc, char *argv[])
   if (locker == NULL) return 1;
   pthread_mutex_init(locker,NULL);
 
-  insert_into_array_lock = malloc(sizeof(pthread_mutex_t)); // Mutex lock for updating array of all temperatures
-  if (insert_into_array_lock == NULL) return 1;
-  pthread_mutex_init(insert_into_array_lock,NULL);
-
+  
   // check the number of arguments
   if (argc != 2)
     {
@@ -323,8 +372,15 @@ int main(int argc, char *argv[])
 
   int PORT_NUMBER = atoi(argv[1]);
   pthread_t thread_id; // id of thread that will be created
- // create/start the thread 
- pthread_create(&thread_id, NULL, &start_arduino, NULL); 
+  // create/start the thread 
+  pthread_create(&thread_id, NULL, &start_arduino, NULL); 
+
+  int index = 0;
+
+  for (index = 0; index < SECONDS_IN_HOUR; index ++){
+    temperature_readings[index] = 0;
+  }
+
 
   start_server(PORT_NUMBER);
 }
