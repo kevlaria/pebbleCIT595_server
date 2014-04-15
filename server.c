@@ -28,9 +28,8 @@ void update_stats(double);
 void insert_into_array(double);
 void send_temperature_to_pebble(int);
 void change_arduino_display_to_c_f();
-char mostRecent[500];
+//char mostRecent[500];
 int end = 0;
-int count = 0;
 pthread_mutex_t* locker;
 //int setting = 0;
 int setF = 0;
@@ -44,6 +43,7 @@ double average;
 double most_recent;
 int count;
 double temperature_readings[SECONDS_IN_HOUR]; 
+int initial_count_buffer = 0;
 
 
 /****************************
@@ -107,7 +107,7 @@ while(end == 0){
       // 5. recv: read incoming message into buffer
       int bytes_received = recv(fd,request,1024,0);
 
-      //if (bytes_received == 0) continue;
+      if (bytes_received == 0) continue;
 
       // null-terminate the string
       request[bytes_received] = '\0';
@@ -231,7 +231,11 @@ void send_temperature_to_pebble(int fd){
 */
 void update_stats(double new_temperature){
 
+      initial_count_buffer++;
+      if (initial_count_buffer < 10) return; // Ignore the first 10 readings
+
       if (new_temperature > 200) return;  // Don't update stats if temperature is faulty
+      
       if (count <= SECONDS_IN_HOUR){
         count++;    // Increment count per update_stats, up to SECONDS_IN_HOUR.
       }
@@ -257,8 +261,8 @@ void update_stats(double new_temperature){
 
       pthread_mutex_unlock(locker);
 
-
 /*
+
       printf("\n%.2f <--- max\t", max);
       printf("\n%.2f <--- min\t", min);
       printf("\n%.2f <--- total\t", total_temperature);
@@ -325,9 +329,10 @@ void* start_arduino(void*p){
 
       double temperature;
       sscanf(buf, "%lf", &temperature); // Convert number into double
+
       update_stats(temperature);
 
-       strcpy(buf, ""); // Clear buffer
+      strcpy(buf, ""); // Clear buffer
       
     }
   }

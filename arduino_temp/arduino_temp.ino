@@ -125,9 +125,10 @@ void loop()
     /* Calculate temperature */
     Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
 
+
     /* Display temperature on the serial monitor. 
        Comment out this line if you don't use serial monitor.*/
-    SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
+   SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
 
     /*
     * If requested, convert display into fahrenheit
@@ -165,7 +166,7 @@ void loop()
       
       // Step 6: Multiply decimal part by 100 and convert into int (0.481 --> 48) - 2 significant figures
       
-      int decimal_fahrenheit_int = (int) (decimal_fahrenheit * 100);
+      int decimal_fahrenheit_int = (int) (decimal_fahrenheit * 10000);
       Decimal = decimal_fahrenheit_int;
     }
     
@@ -230,7 +231,8 @@ void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign)
    Display number on the 7-segment display.
 ****************************************************************************/
 void Dis_7SEG (int Decimal, byte High, byte Low, bool sign)
-{
+{  
+  
   byte Digit = 4;                 /* Number of 7-Segment digit */
   byte Number;                    /* Temporary variable hold the number to display */
   
