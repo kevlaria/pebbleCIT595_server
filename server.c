@@ -174,6 +174,10 @@ while(end == 0){
       else if (strcmp(token, "/standby_1") == 0){    // Turn off standby
         change_arduino_standby(1);
       }
+      
+      else if (strcmp(token, "/morse") == 0){    // Make morse code
+        int bytes_written = write(fdArduino, "2", 1)
+      }
 
       close(fdServer);
 
