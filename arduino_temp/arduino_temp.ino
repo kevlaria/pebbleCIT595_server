@@ -74,6 +74,7 @@ void loop()
   int Decimal;
   byte Temperature_H, Temperature_L, counter, counter2;
   bool IsPositive;
+  bool isStandby = false;
  
    
   /* Configure 7-Segment to 12mA segment output current, Dynamic mode, 
@@ -117,7 +118,7 @@ void loop()
   
   while (1)
   {
-    
+    if(!isStandby){
     Wire.requestFrom(THERM, 2);
     Temperature_H = Wire.read();
     Temperature_L = Wire.read();
@@ -169,7 +170,7 @@ void loop()
       int decimal_fahrenheit_int = (int) (decimal_fahrenheit * 10000);
       Decimal = decimal_fahrenheit_int;
     }
-    
+    }
     
     /*
     * Handles requests from server to change display to F or to C
@@ -185,18 +186,26 @@ void loop()
       } else if (input == 50){
         MorseCode(Temperature_H);
       }
+      else if(input == 79){
+        isStandby = false;
+      }
+      else if(input == 111){
+        isStandby = true;
+      }
+      
       else {
         Serial.print(input);
         Serial.print(" is not a valid input\n");
       }
    }
       
+    if(!isStandby){
     /* Update RGB LED.*/
     UpdateRGB (Temperature_H);
     
     /* Display temperature on the 7-Segment */
     Dis_7SEG (Decimal, Temperature_H, Temperature_L, IsPositive); 
-    
+    }
     delay (1000);        /* Take temperature read every 1 second */
   }
 } 
