@@ -27,7 +27,7 @@
 #define RED (3)        /* Red color pin of RGB LED */
 #define GREEN (5)      /* Green color pin of RGB LED */
 #define BLUE (6)       /* Blue color pin of RGB LED */
-
+#define YELLOW (2)
 #define COLD (23)      /* Cold temperature, drive blue LED (23c) */
 #define HOT (26)       /* Hot temperature, drive red LED (27c) */
 
@@ -182,7 +182,10 @@ void loop()
          IsF = true; 
       } else if (input == 49) {
          IsF = false;
-      } else {
+      } else if (input == 50){
+        MorseCode(Temperature_H);
+      }
+      else {
         Serial.print(input);
         Serial.print(" is not a valid input\n");
       }
@@ -357,4 +360,84 @@ void SerialMonitorPrint (byte Temperature_H, int Decimal, bool IsPositive)
     
     
 }
-    
+
+void MorseCode(byte Temperature_H){
+   digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+ int tens = Temperature_H/10;
+ int fast;
+ int slow;
+ int i;
+ if(tens <= 5){
+   fast = tens;
+   slow = 5 - tens;
+    for (i = 0; i < fast ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(250);
+    digitalWrite(RED, LOW);
+    delay(500);
+ }
+  for (i = 0; i < slow ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(1000);
+    digitalWrite(RED, LOW);
+    delay(1000);
+ }
+ }
+ else{
+   fast = 10 - tens;
+   slow = tens - 5;
+   
+   for (int i = 0; i < slow ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(1000);
+    digitalWrite(RED, LOW);
+    delay(1000);
+ }
+   for (i = 0; i < fast ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(250);
+    digitalWrite(RED, LOW);
+    delay(500);
+ }
+}
+
+delay(1000);
+
+int ones = Temperature_H % 10;
+
+ if(ones <= 5){
+   fast = ones;
+   slow = 5 - ones;
+    for (i = 0; i < fast ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(250);
+    digitalWrite(RED, LOW);
+    delay(500);
+ }
+  for (i = 0; i < slow ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(1000);
+    digitalWrite(RED, LOW);
+    delay(1000);
+ }
+ }
+ else{
+   fast = 10 - ones;
+   slow = ones - 5;
+   
+   for (i = 0; i < slow ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(1000);
+    digitalWrite(RED, LOW);
+    delay(1000);
+ }
+   for (i = 0; i < fast ; i++) {
+    digitalWrite(RED, HIGH);
+    delay(250);
+    digitalWrite(RED, LOW);
+    delay(500);
+ }
+}
+}
