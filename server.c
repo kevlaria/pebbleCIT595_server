@@ -22,19 +22,29 @@ http://www.binarii.com/files/papers/c_sockets.txt
 #include <signal.h>
 #include <termios.h>
 #define SECONDS_IN_HOUR 86400 // 86,400 = 24 hours in seconds
+#define RETRY_COUNT 10 // Number of times to retry before deciding that Arduino isn't responding
 
-void *start_arduino(void *);
+// Internal stats methods
 void update_stats(double);
 void insert_into_array(double);
-void send_temperature_to_pebble(int);
+
+// Server response methods
+void send_temperature_to_pebble();
+void send_success_header();
+void send_failure_to_connect_to_sensor();
+
+// Arduino-related methods
+void *start_arduino(void *);
 void change_arduino_display_to_c_f();
-//char mostRecent[500];
+void change_arduino_standby(int);
+
+
+
 int end = 0;
 pthread_mutex_t* locker;
-//int setting = 0;
 int setF = 0;
-//int setC = 1;
 int fdArduino;
+int fdServer;
 
 // Temperature stats
 double max;
@@ -99,13 +109,13 @@ while(end == 0){
   
       // 4. accept: wait here until we get a connection on that port
       int sin_size = sizeof(struct sockaddr_in);
-      int fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
+      fdServer = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
       printf("Server got a connection from (%s, %d)\n", inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
       // buffer to read data into
       char request[1024];
       
       // 5. recv: read incoming message into buffer
-      int bytes_received = recv(fd,request,1024,0);
+      int bytes_received = recv(fdServer,request,1024,0);
 
       if (bytes_received == 0) continue;
 
@@ -140,21 +150,32 @@ while(end == 0){
       printf("THIS IS TOKEN %s", token);
 
       if(strcmp(token, "/temperature") == 0){ 
-        send_temperature_to_pebble(fd);
+        send_success_header();
+        send_temperature_to_pebble();
         //printf("Server sent message: %s\n", reply);
       }
 
       else if (strcmp(token, "/setF") == 0){
         setF = 1;
-        change_arduino_display_to_c_f(); 
+        change_arduino_display_to_c_f();
+        send_success_header();
       }
       
       else if (strcmp(token, "/setC") == 0){
         setF = 0; 
-        change_arduino_display_to_c_f(); 
+        change_arduino_display_to_c_f();
+        send_success_header();
       }
 
-      close(fd);
+      else if (strcmp(token, "/standby_0") == 0){    // Turn on standby
+        change_arduino_standby(0);
+      }
+
+      else if (strcmp(token, "/standby_1") == 0){    // Turn off standby
+        change_arduino_standby(1);
+      }
+
+      close(fdServer);
 
       // end of call
 
@@ -168,10 +189,23 @@ while(end == 0){
     return 0;
 }
 
+
+/*
+* Function to send success header to the phone
+*/
+void send_success_header(){
+
+  char *reply = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n";
+      
+    // 6. send: send the message over the socket
+        // note that the second argument is a char*, and the third is the number of chars
+  send(fdServer, reply, strlen(reply), 0);
+}
+
 /*
 * Function to send temperature to phone
 */
-void send_temperature_to_pebble(int fd){
+void send_temperature_to_pebble(){
   char string_to_send_to_phone[500];
 
   /* Update string to be sent to phone.  * The server should have the following format:
@@ -196,7 +230,7 @@ void send_temperature_to_pebble(int fd){
       
     // 6. send: send the message over the socket
         // note that the second argument is a char*, and the third is the number of chars
-    send(fd, reply, strlen(reply), 0);
+    send(fdServer, reply, strlen(reply), 0);
   } else {  // Send in Fahrenheit
 
     pthread_mutex_lock(locker);
@@ -215,9 +249,19 @@ void send_temperature_to_pebble(int fd){
       
     // 6. send: send the message over the socket
         // note that the second argument is a char*, and the third is the number of chars
-    send(fd, reply, strlen(reply), 0);
+    send(fdServer, reply, strlen(reply), 0);
 
   }
+}
+
+/*
+* Function to send an error message out
+*/
+void send_failure_to_connect_to_sensor(){
+    char string_to_send_to_phone[500];
+    sprintf(string_to_send_to_phone, "{\n\"mode\": \"error\"\n}");
+    char *reply = string_to_send_to_phone;
+    send(fdServer, reply, strlen(reply), 0);
 }
 
 
@@ -313,19 +357,34 @@ void* start_arduino(void*p){
   cfsetospeed(&options, 9600);
   tcsetattr(fdArduino, TCSANOW, &options);
   
-
+  
   
   char buf[500];
   char buf2[2];
+
+
+
   while (1) {
 
+    int failure_counter = RETRY_COUNT;
     // Read in temperature from Arduino. It will always be sent in Celsius
-    read(fdArduino, buf2, 1);
+    int response = read(fdArduino, buf2, 1);
+    while (response == 0){
+      if (failure_counter <= 0){
+        void send_failure_to_connect_to_sensor(); // Failed to connect to sensor > threshold, so sending message to watch
+        failure_counter = RETRY_COUNT; // reset failure_counter
+
+      } else {
+        failure_counter --;
+        response = read(fdArduino, buf2, 1);
+      }
+    }
+
+
     if(buf2[0] != '\n') strcat(buf, buf2); // copy individual letter to buffer, 
     // and continue reading next letter
              
     else {  // Output from arduino is complete. 
-
 
       double temperature;
       sscanf(buf, "%lf", &temperature); // Convert number into double
@@ -336,6 +395,7 @@ void* start_arduino(void*p){
       
     }
   }
+  close(fdArduino);
 }
 
 
@@ -354,6 +414,16 @@ void change_arduino_display_to_c_f(){
 }
 
 
+/*
+* Method to tell arduino to go in / out of standby mode
+*/
+void change_arduino_standby(int signal){
+  if (signal == 0){
+    int bytes_written = write(fdArduino, "o", 1); // Signal to turn on standby
+  } else if (signal == 1){
+    int bytes_written = write(fdArduino, "O", 1); // Signal to turn off standby 
+  }
+}
 
 
 /**************
