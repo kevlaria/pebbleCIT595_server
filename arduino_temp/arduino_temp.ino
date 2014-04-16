@@ -191,6 +191,9 @@ void loop()
       }
       else if(input == 111){
         isStandby = true;
+                      digitalWrite(RED, LOW);
+                      digitalWrite(GREEN, LOW);
+                      digitalWrite(BLUE, LOW);
       }
       
       else {
@@ -374,6 +377,10 @@ void MorseCode(byte Temperature_H){
    digitalWrite(RED, LOW);
   digitalWrite(GREEN, LOW);
   digitalWrite(BLUE, LOW);
+  delay(1000);
+    digitalWrite(GREEN, HIGH);
+    delay(2000);
+     digitalWrite(GREEN, LOW);
  int tens = Temperature_H/10;
  int fast;
  int slow;
@@ -449,4 +456,11 @@ int ones = Temperature_H % 10;
     delay(500);
  }
 }
+digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+  delay(1000);
+    digitalWrite(GREEN, HIGH);
+    delay(2000);
+     digitalWrite(GREEN, LOW);
 }
