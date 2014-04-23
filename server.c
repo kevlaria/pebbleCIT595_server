@@ -147,7 +147,7 @@ while(end == 0){
         token = strtok(NULL, " ");
       }
       token = strtok(NULL, " ");
-      printf("THIS IS TOKEN %s", token);
+      printf("THIS IS THE TOKEN %s\n", token);
 
       if(strcmp(token, "/temperature") == 0){ 
         send_success_header();
@@ -263,7 +263,7 @@ void send_temperature_to_pebble(){
 */
 void send_failure_to_connect_to_sensor(){
     char string_to_send_to_phone[500];
-    sprintf(string_to_send_to_phone, "{\n\"mode\": \"error\"\n}");
+    sprintf(string_to_send_to_phone, "{\n\"mode\": \"Error\"\n}");
     char *reply = string_to_send_to_phone;
     send(fdServer, reply, strlen(reply), 0);
 }
@@ -375,6 +375,9 @@ void* start_arduino(void*p){
     int response = read(fdArduino, buf2, 1);
     while (response == 0){
       if (failure_counter <= 0){
+
+        // Add speed bump?
+
         void send_failure_to_connect_to_sensor(); // Failed to connect to sensor > threshold, so sending message to watch
         failure_counter = RETRY_COUNT; // reset failure_counter
 
