@@ -3,6 +3,8 @@ This code primarily comes from
 http://www.prasannatech.net/2008/07/socket-programming-tutorial.html
 and
 http://www.binarii.com/files/papers/c_sockets.txt
+
+NOTE::::: UPDATE SOCKET BEFORE USE ********
  */
  
  // TODO BUG with SETC & SETF - interfacing between arduino thread and server code. Reading something in from server, trying to translate to server to thread in arduino server. Stuck in F after transition or not transitioning
@@ -45,6 +47,8 @@ pthread_mutex_t* locker;
 int setF = 0;
 int fdArduino;
 int fdServer;
+int standbyStatus = 1; // 1 = on standby, 0 = on standby
+int connectionFailed = 0;
 
 // Temperature stats
 double max;
@@ -74,13 +78,13 @@ int start_server(int PORT_NUMBER)
 
       // 1. socket: creates a socket descriptor that you later use to make other system calls
       if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-	perror("Socket");
-	exit(1);
+  perror("Socket");
+  exit(1);
       }
       int temp;
       if (setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&temp,sizeof(int)) == -1) {
-	perror("Setsockopt");
-	exit(1);
+  perror("Setsockopt");
+  exit(1);
       }
 
       // configure the server
@@ -91,14 +95,14 @@ int start_server(int PORT_NUMBER)
       
       // 2. bind: use the socket and associate it with the port number
       if (bind(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
-	perror("Unable to bind");
-	exit(1);
+  perror("Unable to bind");
+  exit(1);
       }
 
       // 3. listen: indicates that we want to listn to the port to which we bound; second arg is number of allowed connections
       if (listen(sock, 5) == -1) {
-	perror("Listen");
-	exit(1);
+  perror("Listen");
+  exit(1);
       }
           
       // once you get here, the server is set up and about to start listening
@@ -135,11 +139,12 @@ while(end == 0){
       */
       /*
       * This is where the server receives message from the phone. The message will be in the following formats:
-	- "/temperature"
-	- "/pause" (to be implemented)
-	- "/resume" (to be implemented)
+  - "/temperature"
+  - "/pause" (to be implemented)
+  - "/resume" (to be implemented)
      
       */
+
       
       char * token;
       token = strtok(request, " ");
@@ -149,8 +154,14 @@ while(end == 0){
       token = strtok(NULL, " ");
       printf("THIS IS THE TOKEN %s\n", token);
 
+
+      if(connectionFailed == 1){
+        send_failure_to_connect_to_sensor();
+        close(fdServer);
+        continue;
+      }
       if(strcmp(token, "/temperature") == 0){ 
-        send_success_header();
+        send_success_header("");
         send_temperature_to_pebble();
         //printf("Server sent message: %s\n", reply);
       }
@@ -158,25 +169,33 @@ while(end == 0){
       else if (strcmp(token, "/setF") == 0){
         setF = 1;
         change_arduino_display_to_c_f();
-        send_success_header();
+        send_success_header("");
       }
       
       else if (strcmp(token, "/setC") == 0){
         setF = 0; 
         change_arduino_display_to_c_f();
-        send_success_header();
+        send_success_header("");
       }
 
-      else if (strcmp(token, "/standby_0") == 0){    // Turn on standby
+      else if (strcmp(token, "/standby") == 0){    // Turn on standby
+        if(standbyStatus == 1){
         change_arduino_standby(0);
+        send_success_header("{\n\"status\": \"paused\"\n}");
+        standbyStatus = 0;
       }
-
-      else if (strcmp(token, "/standby_1") == 0){    // Turn off standby
+      else{
         change_arduino_standby(1);
+        send_success_header("{\n\"status\": \"active\"\n}");
+         standbyStatus = 1;
+      }
+      
+          
       }
       
       else if (strcmp(token, "/morse") == 0){    // Make morse code
         int bytes_written = write(fdArduino, "2", 1);
+          send_success_header("");
       }
 
       close(fdServer);
@@ -197,14 +216,18 @@ while(end == 0){
 /*
 * Function to send success header to the phone
 */
-void send_success_header(){
+void send_success_header(char* message){
 
   char *reply = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n";
       
     // 6. send: send the message over the socket
         // note that the second argument is a char*, and the third is the number of chars
   send(fdServer, reply, strlen(reply), 0);
+   send(fdServer, message, strlen(message), 0);
+
 }
+
+
 
 /*
 * Function to send temperature to phone
@@ -262,6 +285,8 @@ void send_temperature_to_pebble(){
 * Function to send an error message out
 */
 void send_failure_to_connect_to_sensor(){
+
+
     char string_to_send_to_phone[500];
     sprintf(string_to_send_to_phone, "{\n\"mode\": \"Error\"\n}");
     char *reply = string_to_send_to_phone;
@@ -278,6 +303,8 @@ void send_failure_to_connect_to_sensor(){
 *  Function to update stats
 */
 void update_stats(double new_temperature){
+
+    if(standbyStatus == 1){
 
       initial_count_buffer++;
       if (initial_count_buffer < 10) return; // Ignore the first 10 readings
@@ -309,7 +336,7 @@ void update_stats(double new_temperature){
 
       pthread_mutex_unlock(locker);
 
-/*
+
 
       printf("\n%.2f <--- max\t", max);
       printf("\n%.2f <--- min\t", min);
@@ -321,7 +348,8 @@ void update_stats(double new_temperature){
         printf("%.2f\t", temperature_readings[index]);
       }
       printf("\n");
-*/
+
+    }
 
 }
 
@@ -352,7 +380,7 @@ void* start_arduino(void*p){
   /* Connect with Arduino */
   // first, open the connection
   
-  fdArduino = open("/dev/cu.usbmodem1421", O_RDWR);
+  fdArduino = open("/dev/cu.usbmodem1411", O_RDWR);
 
   // then configure it
   struct termios options;
@@ -373,12 +401,12 @@ void* start_arduino(void*p){
     int failure_counter = RETRY_COUNT;
     // Read in temperature from Arduino. It will always be sent in Celsius
     int response = read(fdArduino, buf2, 1);
-    while (response == 0){
+
+    while (response == -1){
       if (failure_counter <= 0){
 
         // Add speed bump?
-
-        void send_failure_to_connect_to_sensor(); // Failed to connect to sensor > threshold, so sending message to watch
+        connectionFailed = 1;
         failure_counter = RETRY_COUNT; // reset failure_counter
 
       } else {
@@ -387,12 +415,13 @@ void* start_arduino(void*p){
       }
     }
 
+    connectionFailed = 0;
 
-    if(buf2[0] != '\n') strcat(buf, buf2); // copy individual letter to buffer, 
-    // and continue reading next letter
-             
+    if(buf2[0] != '\n'){
+      strcat(buf, buf2); // copy individual letter to buffer, 
+      // and continue reading next letter
+    }        
     else {  // Output from arduino is complete. 
-
       double temperature;
       sscanf(buf, "%lf", &temperature); // Convert number into double
 
