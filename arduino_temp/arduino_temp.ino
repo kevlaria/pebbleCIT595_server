@@ -191,9 +191,6 @@ void loop()
       }
       else if(input == 111){
         isStandby = true;
-                      digitalWrite(RED, LOW);
-                      digitalWrite(GREEN, LOW);
-                      digitalWrite(BLUE, LOW);
       }
       
       else {
@@ -373,94 +370,111 @@ void SerialMonitorPrint (byte Temperature_H, int Decimal, bool IsPositive)
     
 }
 
-void MorseCode(byte Temperature_H){
+void shortBlinks(int blinks){
+    for (int i = 0; i < blinks ; i++) {
+    digitalWrite(RED, HIGH);
+     digitalWrite(BLUE, HIGH);
+    delay(250);
+    digitalWrite(RED, LOW);
+     digitalWrite(BLUE, LOW);
+    delay(500);
+ }
+}
+void longBlinks(int blinks){
+    for (int i = 0; i < blinks ; i++) {
+      digitalWrite(RED, HIGH);
+     digitalWrite(BLUE, HIGH);
+    delay(1200);
+    digitalWrite(RED, LOW);
+     digitalWrite(BLUE, LOW);
+    delay(500);
+ }
+}
+
+void endMessage(){
+   digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+
+ shortBlinks(1);
+ longBlinks(1);
+ shortBlinks(1);
+ longBlinks(1);
+  delay(1000);
+ digitalWrite(GREEN, HIGH);
+ delay(1000);
+ digitalWrite(GREEN, LOW);
+ delay(1000);
+}
+void startMessage(){
    digitalWrite(RED, LOW);
   digitalWrite(GREEN, LOW);
   digitalWrite(BLUE, LOW);
   delay(1000);
-    digitalWrite(GREEN, HIGH);
-    delay(2000);
-     digitalWrite(GREEN, LOW);
- int tens = Temperature_H/10;
- int fast;
- int slow;
- int i;
- if(tens <= 5){
-   fast = tens;
-   slow = 5 - tens;
-    for (i = 0; i < fast ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(250);
-    digitalWrite(RED, LOW);
-    delay(500);
- }
-  for (i = 0; i < slow ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(1000);
-    digitalWrite(RED, LOW);
-    delay(1000);
- }
- }
- else{
-   fast = 10 - tens;
-   slow = tens - 5;
-   
-   for (int i = 0; i < slow ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(1000);
-    digitalWrite(RED, LOW);
-    delay(1000);
- }
-   for (i = 0; i < fast ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(250);
-    digitalWrite(RED, LOW);
-    delay(500);
- }
+ digitalWrite(GREEN, HIGH);
+  delay(1000);
+ digitalWrite(GREEN, LOW);
+ delay(1000);
+ longBlinks(1);
+ shortBlinks(1);
+ longBlinks(1);
+ shortBlinks(1);
+ delay(1000);
 }
 
+void MorseCode(byte Temperature_H){
+  
+ int temp = Temperature_H;
+ int tens = Temperature_H/10;
+  startMessage();
+  delay(1000);
+ if(temp < 0){
+   longBlinks(1);
+   shortBlinks(4);
+   longBlinks(1);
+   delay(1000);
+   temp = abs(temp);
+   tens = abs(tens);
+ }
+//If over 100.
+ if(tens > 9){
+   shortBlinks(1);
+   longBlinks(4);
+ }
+ 
+ 
+ if(tens <= 5 && tens > 0){
+   shortBlinks(tens);
+   longBlinks(5-tens);
+ }
+ else{
+    longBlinks(tens-5);
+    shortBlinks(10-tens);
+}
 delay(1000);
 
-int ones = Temperature_H % 10;
+int ones = temp % 10;
 
  if(ones <= 5){
-   fast = ones;
-   slow = 5 - ones;
-    for (i = 0; i < fast ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(250);
-    digitalWrite(RED, LOW);
-    delay(500);
- }
-  for (i = 0; i < slow ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(1000);
-    digitalWrite(RED, LOW);
-    delay(1000);
- }
+  shortBlinks(ones);
+   longBlinks(5-ones);
  }
  else{
-   fast = 10 - ones;
-   slow = ones - 5;
-   
-   for (i = 0; i < slow ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(1000);
-    digitalWrite(RED, LOW);
-    delay(1000);
- }
-   for (i = 0; i < fast ; i++) {
-    digitalWrite(RED, HIGH);
-    delay(250);
-    digitalWrite(RED, LOW);
-    delay(500);
- }
+   longBlinks(ones-5);
+    shortBlinks(10-ones);
 }
-digitalWrite(RED, LOW);
-  digitalWrite(GREEN, LOW);
-  digitalWrite(BLUE, LOW);
-  delay(1000);
-    digitalWrite(GREEN, HIGH);
-    delay(2000);
-     digitalWrite(GREEN, LOW);
+delay(1000);
+if(IsF){
+  shortBlinks(2);
+  longBlinks(1);
+  shortBlinks(2);
+}
+else{
+  longBlinks(1);
+  shortBlinks(1);
+  longBlinks(1);
+  shortBlinks(1);
+}
+delay(1000);
+endMessage();
 }
