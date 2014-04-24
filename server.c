@@ -335,7 +335,7 @@ void update_stats(double new_temperature){
 
       pthread_mutex_unlock(locker);
 
-
+/*
 
       printf("\n%.2f <--- max\t", max);
       printf("\n%.2f <--- min\t", min);
@@ -348,6 +348,7 @@ void update_stats(double new_temperature){
       }
       printf("\n");
 
+*/
     }
 
 }
