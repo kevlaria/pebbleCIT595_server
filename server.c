@@ -284,9 +284,8 @@ void send_temperature_to_pebble(){
 */
 void send_failure_to_connect_to_sensor(){
 
-
     char string_to_send_to_phone[500];
-    sprintf(string_to_send_to_phone, "{\n\"mode\": \"Error\"\n}");
+    sprintf(string_to_send_to_phone, "{\"error\": \"sensor\"}");
     char *reply = string_to_send_to_phone;
     send(fdServer, reply, strlen(reply), 0);
 }
