@@ -119,57 +119,57 @@ void loop()
   while (1)
   {
     if(!isStandby){
-    Wire.requestFrom(THERM, 2);
-    Temperature_H = Wire.read();
-    Temperature_L = Wire.read();
+      Wire.requestFrom(THERM, 2);
+      Temperature_H = Wire.read();
+      Temperature_L = Wire.read();
     
-    /* Calculate temperature */
-    Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
+      /* Calculate temperature */
+      Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
 
 
-    /* Display temperature on the serial monitor. 
+      /* Display temperature on the serial monitor. 
        Comment out this line if you don't use serial monitor.*/
-   SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
+     SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
 
-    /*
-    * If requested, convert display into fahrenheit
-    */
-    if(IsF){
+      /*  
+      * If requested, convert display into fahrenheit
+      */
+      if(IsF){
       
-      // Eg 35.481:
-      // Temperature_H refers to the integer part of the temperature ie 35
-      // Decmial part refers to the decmial part of the temperature ie 481
+        // Eg 35.481:
+        // Temperature_H refers to the integer part of the temperature ie 35
+        // Decmial part refers to the decmial part of the temperature ie 481
       
-      // Step 1: turn decimal part into a proper decimal (ie 0.481)
-      char decimal_buffer[10];
-      sprintf(decimal_buffer, "%d", Decimal);
+        // Step 1: turn decimal part into a proper decimal (ie 0.481)
+        char decimal_buffer[10];
+        sprintf(decimal_buffer, "%d", Decimal);
       
-      char decimal_string[12];
-      strcpy(decimal_string, "0.");
-      strcat(decimal_string, decimal_buffer);
+        char decimal_string[12];
+        strcpy(decimal_string, "0.");
+        strcat(decimal_string, decimal_buffer);
       
-      double decimal_double = atof(decimal_string);
+        double decimal_double = atof(decimal_string);
       
-      // Step 2: Calculate double-type temperature
-      double full_temp = (double) Temperature_H + decimal_double;
+        // Step 2: Calculate double-type temperature
+        double full_temp = (double) Temperature_H + decimal_double;
       
-      // Step 3: Convert to Fahrenheit
+        // Step 3: Convert to Fahrenheit
       
-      double fahrenheit = full_temp * 9/5 + 32;
+        double fahrenheit = full_temp * 9/5 + 32;
       
-      // Step 4: Extract integer part
+        // Step 4: Extract integer part
       
-      Temperature_H = (byte) fahrenheit;
+        Temperature_H = (byte) fahrenheit;
       
-      // Step 5: Extract decimal part
+        // Step 5: Extract decimal part
       
-      double decimal_fahrenheit = fahrenheit - (double) Temperature_H;
+        double decimal_fahrenheit = fahrenheit - (double) Temperature_H;
       
-      // Step 6: Multiply decimal part by 100 and convert into int (0.481 --> 48) - 2 significant figures
+        // Step 6: Multiply decimal part by 100 and convert into int (0.481 --> 48) - 2 significant figures
       
-      int decimal_fahrenheit_int = (int) (decimal_fahrenheit * 10000);
-      Decimal = decimal_fahrenheit_int;
-    }
+        int decimal_fahrenheit_int = (int) (decimal_fahrenheit * 10000);
+        Decimal = decimal_fahrenheit_int;
+      }
     }
     
     /*
@@ -191,6 +191,10 @@ void loop()
       }
       else if(input == 111){
         isStandby = true;
+          digitalWrite(RED, LOW);
+          digitalWrite(GREEN, LOW);
+          digitalWrite(BLUE, LOW);        /* Turn off all LEDs. */
+
       }
       
       else {
@@ -370,111 +374,123 @@ void SerialMonitorPrint (byte Temperature_H, int Decimal, bool IsPositive)
     
 }
 
-void shortBlinks(int blinks){
-    for (int i = 0; i < blinks ; i++) {
-    digitalWrite(RED, HIGH);
-     digitalWrite(BLUE, HIGH);
-    delay(250);
-    digitalWrite(RED, LOW);
-     digitalWrite(BLUE, LOW);
-    delay(500);
- }
-}
-void longBlinks(int blinks){
-    for (int i = 0; i < blinks ; i++) {
-      digitalWrite(RED, HIGH);
-     digitalWrite(BLUE, HIGH);
-    delay(1200);
-    digitalWrite(RED, LOW);
-     digitalWrite(BLUE, LOW);
-    delay(500);
- }
-}
 
-void endMessage(){
-   digitalWrite(RED, LOW);
-  digitalWrite(GREEN, LOW);
-  digitalWrite(BLUE, LOW);
+/***************************************************************************
+ Function Name: Morse Code
 
- shortBlinks(1);
- longBlinks(1);
- shortBlinks(1);
- longBlinks(1);
-  delay(1000);
- digitalWrite(GREEN, HIGH);
- delay(1000);
- digitalWrite(GREEN, LOW);
- delay(1000);
-}
-void startMessage(){
-   digitalWrite(RED, LOW);
-  digitalWrite(GREEN, LOW);
-  digitalWrite(BLUE, LOW);
-  delay(1000);
- digitalWrite(GREEN, HIGH);
-  delay(1000);
- digitalWrite(GREEN, LOW);
- delay(1000);
- longBlinks(1);
- shortBlinks(1);
- longBlinks(1);
- shortBlinks(1);
- delay(1000);
-}
+ Purpose: 
+   Print current read temperature to the serial monitor.
+****************************************************************************/
 
 void MorseCode(byte Temperature_H){
   
- int temp = Temperature_H;
- int tens = Temperature_H/10;
+  int temp = Temperature_H;
+  int tens = Temperature_H/10;
   startMessage();
   delay(1000);
- if(temp < 0){
-   longBlinks(1);
-   shortBlinks(4);
-   longBlinks(1);
-   delay(1000);
-   temp = abs(temp);
-   tens = abs(tens);
- }
+  if(temp < 0){
+    longBlinks(1);
+    shortBlinks(4);
+    longBlinks(1);
+    delay(1000);
+    temp = abs(temp);
+    tens = abs(tens);
+  }
 //If over 100.
- if(tens > 9){
-   shortBlinks(1);
-   longBlinks(4);
- }
- 
+  if(tens > 9){
+    shortBlinks(1);
+    longBlinks(4);
+  }
  
  if(tens <= 5 && tens > 0){
    shortBlinks(tens);
-   longBlinks(5-tens);
+   longBlinks(5 - tens);
  }
  else{
     longBlinks(tens-5);
-    shortBlinks(10-tens);
-}
-delay(1000);
-
-int ones = temp % 10;
-
- if(ones <= 5){
-  shortBlinks(ones);
-   longBlinks(5-ones);
- }
- else{
-   longBlinks(ones-5);
+    shortBlinks(10 - tens);
+  }
+  
+  delay(1000); // Wait for next digit
+  
+  int ones = temp % 10;
+  if(ones <= 5){
+    shortBlinks(ones);
+    longBlinks(5-ones);
+  }
+  else {
+    longBlinks(ones-5);
     shortBlinks(10-ones);
+  }
+  
+  delay(1000);
+  if(IsF){    // Display 'f'
+    shortBlinks(2);
+    longBlinks(1);
+    shortBlinks(2);
+  }
+  else {    // Display 'c'
+    longBlinks(1);
+    shortBlinks(1);
+    longBlinks(1);
+    shortBlinks(1);
+  }
+  delay(1000);
+  endMessage();
 }
-delay(1000);
-if(IsF){
-  shortBlinks(2);
+
+void shortBlinks(int blinks){
+  for (int i = 0; i < blinks ; i++) {
+    digitalWrite(RED, HIGH);
+    digitalWrite(BLUE, HIGH);
+    delay(250);
+    digitalWrite(RED, LOW);
+    digitalWrite(BLUE, LOW);
+    delay(500);
+  }
+}
+
+void longBlinks(int blinks){
+  for (int i = 0; i < blinks ; i++) {
+    digitalWrite(RED, HIGH);
+    digitalWrite(BLUE, HIGH);
+    delay(1200);
+    digitalWrite(RED, LOW);
+    digitalWrite(BLUE, LOW);
+    delay(500);
+  }
+}
+
+void endMessage(){
+  digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+
+  shortBlinks(1);
   longBlinks(1);
-  shortBlinks(2);
+  shortBlinks(1);
+  longBlinks(1);
+  delay(1000);
+  digitalWrite(GREEN, HIGH);
+  delay(1000);
+  digitalWrite(GREEN, LOW);
+  delay(1000);
 }
-else{
+
+void startMessage(){
+  digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+  delay(1000);
+  digitalWrite(GREEN, HIGH);
+  delay(1000);
+  digitalWrite(GREEN, LOW);
+  delay(1000);
   longBlinks(1);
   shortBlinks(1);
   longBlinks(1);
   shortBlinks(1);
+  delay(1000);
 }
-delay(1000);
-endMessage();
-}
+
+

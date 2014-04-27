@@ -59,7 +59,6 @@ int count;
 double temperature_readings[SECONDS_IN_HOUR]; 
 int initial_count_buffer = 0;
 
-
 /****************************
 * SERVER-RELATED CODE
 *****************************
@@ -380,7 +379,7 @@ void* start_arduino(void*p){
   /* Connect with Arduino */
   // first, open the connection
   
-  fdArduino = open("/dev/cu.usbmodem1411", O_RDWR);
+  fdArduino = open("/dev/cu.usbmodem1421", O_RDWR);
 
   // then configure it
   struct termios options;
