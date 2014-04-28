@@ -7,8 +7,6 @@ http://www.binarii.com/files/papers/c_sockets.txt
 NOTE::::: UPDATE SOCKET BEFORE USE ********
  */
  
- // TODO BUG with SETC & SETF - interfacing between arduino thread and server code. Reading something in from server, trying to translate to server to thread in arduino server. Stuck in F after transition or not transitioning
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,7 +21,7 @@ NOTE::::: UPDATE SOCKET BEFORE USE ********
 #include <fcntl.h>
 #include <signal.h>
 #include <termios.h>
-#define SECONDS_IN_HOUR 86400 // 86,400 = 24 hours in seconds
+#define SECONDS_IN_24HOUR 86400 // 86,400 = 24 hours in seconds
 #define RETRY_COUNT 10 // Number of times to retry before deciding that Arduino isn't responding
 
 // Internal stats methods
@@ -56,8 +54,9 @@ double min;
 double average;
 double most_recent;
 int count;
-double temperature_readings[SECONDS_IN_HOUR]; 
+double temperature_readings[SECONDS_IN_24HOUR]; 
 int initial_count_buffer = 0;
+
 
 /****************************
 * SERVER-RELATED CODE
@@ -308,8 +307,8 @@ void update_stats(double new_temperature){
 
       if (new_temperature > 200) return;  // Don't update stats if temperature is faulty
       
-      if (count <= SECONDS_IN_HOUR){
-        count++;    // Increment count per update_stats, up to SECONDS_IN_HOUR.
+      if (count <= SECONDS_IN_24HOUR){
+        count++;    // Increment count per update_stats, up to SECONDS_IN_24HOUR.
       }
 
       int index = 0;
@@ -357,7 +356,7 @@ void update_stats(double new_temperature){
 void insert_into_array(double new_temperature){
   int index = 0;
 
-  for (index = SECONDS_IN_HOUR; index > 0; index --){
+  for (index = SECONDS_IN_24HOUR; index > 0; index --){
     temperature_readings[index] = temperature_readings[index - 1];
   }
   temperature_readings[0] = new_temperature;
@@ -486,7 +485,7 @@ int main(int argc, char *argv[])
 
   int index = 0;
 
-  for (index = 0; index < SECONDS_IN_HOUR; index ++){
+  for (index = 0; index < SECONDS_IN_24HOUR; index ++){
     temperature_readings[index] = 0;
   }
 
