@@ -386,6 +386,7 @@ void MorseCode(byte Temperature_H){
   
   int temp = Temperature_H;
   int tens = Temperature_H/10;
+  startMessage();
   delay(1000);
   if(temp < 0){
     longBlinks(1);
@@ -435,6 +436,7 @@ void MorseCode(byte Temperature_H){
     shortBlinks(1);
   }
   delay(1000);
+  endMessage();
 }
 
 void shortBlinks(int blinks){
@@ -457,6 +459,35 @@ void longBlinks(int blinks){
     digitalWrite(BLUE, LOW);
     delay(500);
   }
+
+}
+
+  
+void startMessage(){
+  digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+  delay(1000);
+  digitalWrite(BLUE, HIGH);
+  digitalWrite(GREEN, HIGH);
+  delay(1000);
+  digitalWrite(BLUE, LOW);
+  digitalWrite(GREEN, LOW);
+
+  delay(1000);
+}
+  
+void endMessage(){
+  digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+  digitalWrite(BLUE, HIGH);
+    digitalWrite(GREEN, HIGH);
+
+  delay(1000);
+  digitalWrite(BLUE, LOW);
+  digitalWrite(GREEN, LOW);
+  delay(1000);
 }
 
 
